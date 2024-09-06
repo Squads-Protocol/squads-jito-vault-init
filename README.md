@@ -52,11 +52,12 @@ Example:
 
 ```
 yarn start --
---restaking-program-id ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop
---vault-program-id QRSTUVWXYZabcdefghijklmnopABCDEFGHIJKLMNOP
---multisig-address 3Jq8ikZhdNtZc5NY3utNrevLRRvg5j2ADz7wLxjaPt5s
---mint So11111111111111111111111111111111111111112
---rpc-url https://api.devnet.solana.com
+--restaking-program-id ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop \
+--vault-program-id QRSTUVWXYZabcdefghijklmnopABCDEFGHIJKLMNOP \
+--multisig-address 3Jq8ikZhdNtZc5NY3utNrevLRRvg5j2ADz7wLxjaPt5s \
+--mint So11111111111111111111111111111111111111112 \
+--rpc-url https://api.devnet.solana.com \
+--wallet-path /path/to/your/wallet.json \
 ```
 
 

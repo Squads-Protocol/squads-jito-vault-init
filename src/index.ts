@@ -5,6 +5,7 @@ import { createMint } from "@solana/spl-token";
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 import { createMultisigTx, setupJitoVaultConfigTx, setupJitoVaultInitTx } from "./transactions";
+import { loadWalletFromFile } from "./wallet";
 
 const argv = yargs(hideBin(process.argv))
   .option('restaking-program-id', {
@@ -29,6 +30,11 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'RPC URL',
     default: 'https://api.devnet.solana.com'
+  })
+  .option('wallet-path', {
+    type: 'string',
+    description: 'Path to the Solana wallet JSON file',
+    demandOption: true
   })
   .parseSync();
 
@@ -247,8 +253,10 @@ const executions = async (connection: Connection, creator: Keypair, multisigAddr
 
 // Main logic example
 const main = async () => {
-    // replace this with the CLI wallet keypair/Signer
-    const creator = Keypair.generate();
+    const walletPath = argv['wallet-path'];
+    const creator = loadWalletFromFile(walletPath);
+  
+    console.log("Using wallet public key:", creator.publicKey.toBase58());
 
     const connection = new Connection(RPC_URL, "confirmed");
     // create the squad if needed
