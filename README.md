@@ -100,3 +100,7 @@ To modify these parameters, edit the values in the `main` function of `src/index
 `https://github.com/jito-foundation/restaking/blob/master/vault_program/src/initialize_vault.rs`
 
 `https://github.com/jito-foundation/restaking/tree/ddcb69ff9400bdbd716bbab64508c87dc5512494/vault_sdk`
+
+## Disclaimer
+
+This script is provided as-is, without any warranties or guarantees of any kind. The authors and contributors of this script take no responsibility for its use or any consequences that may arise from its execution. Users should exercise caution and thoroughly review the script before running it, especially when dealing with cryptocurrencies or blockchain transactions. Use this script at your own risk.
