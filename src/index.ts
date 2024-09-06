@@ -278,8 +278,9 @@ const main = async () => {
         blockhash,
         connection
     );
-    let signature = await connection.sendTransaction(createMsTx, [multisigCreateKey, creator]);
-    await connection.confirmTransaction(signature, {blockhash, lastValidBlockHeight});
+    createMsTx.sign([multisigCreateKey, creator]);
+    let signature = await connection.sendTransaction(createMsTx);
+    await connection.confirmTransaction({signature, blockhash, lastValidBlockHeight});
 
 
     // ---------
@@ -296,8 +297,9 @@ const main = async () => {
         creator.publicKey,
         1n
     );
-    signature = await connection.sendTransaction(vaultConfigTx, [creator]);
-    await connection.confirmTransaction(signature, {blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+    vaultConfigTx.sign([creator]);
+    signature = await connection.sendTransaction(vaultConfigTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     // now execute the transaction
     nextBlockhash = await connection.getLatestBlockhash();
@@ -309,8 +311,9 @@ const main = async () => {
             transactionIndex: 1n,
             member: creator.publicKey,
         });
-    signature = await connection.sendTransaction(executeConfigTx, [creator]);
-    await connection.confirmTransaction(signature, {blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+    executeConfigTx.sign([creator]);
+    signature = await connection.sendTransaction(executeConfigTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     // ----------
     
@@ -335,8 +338,9 @@ const main = async () => {
         rewardFeeBps,
         decimals
     );
-    signature = await connection.sendTransaction(vaultInitTx, [creator]);
-    await connection.confirmTransaction(signature, {blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+    vaultInitTx.sign([creator]);
+    signature = await connection.sendTransaction(vaultInitTx);
+    await connection.confirmTransaction({signature,blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     // proposal vote here
 
@@ -350,6 +354,7 @@ const main = async () => {
             transactionIndex: 2n,
             member: creator.publicKey,
         });
-    signature = await connection.sendTransaction(executeConfigTx, [creator]);
-    await connection.confirmTransaction(signature, {blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+    executeInitTx.sign([creator]);
+    signature = await connection.sendTransaction(executeConfigTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
