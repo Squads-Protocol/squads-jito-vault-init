@@ -11,17 +11,48 @@ import { getMultisigPda, getVaultPda, getProgramConfigPda, getTransactionPda, ac
 import { PublicKey, Keypair, Connection, TransactionInstruction, Transaction, TransactionMessage, Signer, SystemProgram, VersionedTransaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
 
-// EXAMPLE - REPLACE WITH IDS
-const RESTAKING_PROGRAM_ID = new PublicKey("-----");
-const VAULT_PROGRAM_ID = new PublicKey("------");
+import yargs from 'yargs/yargs';
+import { hideBin } from 'yargs/helpers';
 
-const RPC_URL = "https://api.devnet.solana.com";
+const argv = yargs(hideBin(process.argv))
+  .option('restaking-program-id', {
+    type: 'string',
+    description: 'Restaking Program ID',
+    demandOption: true
+  })
+  .option('vault-program-id', {
+    type: 'string',
+    description: 'Vault Program ID',
+    demandOption: true
+  })
+  .option('multisig-address', {
+    type: 'string',
+    description: 'Multisig Address (optional)',
+  })
+  .option('mint', {
+    type: 'string',
+    description: 'Mint Address (optional)',
+  })
+  .option('rpc-url', {
+    type: 'string',
+    description: 'RPC URL',
+    default: 'https://api.devnet.solana.com'
+  })
+  .parseSync();
 
-// REPLACE THIS IF THE MULTISIG HAS ALREADY BEEN CREATED
-const MULTISIG_ADDRESS: PublicKey | null = null;
 
-// REPLACE THIS WITH THE MINT IF IT EXISTS, OR IT WILL CREATE A NEW ONE AND ASSIGN IT
-const MINT: PublicKey | undefined = undefined;
+const RESTAKING_PROGRAM_ID = new PublicKey(argv['restaking-program-id']);
+const VAULT_PROGRAM_ID = new PublicKey(argv['vault-program-id']);
+const RPC_URL = argv['rpc-url'];
+
+const MULTISIG_ADDRESS: PublicKey | null = argv['multisig-address'] 
+  ? new PublicKey(argv['multisig-address']) 
+  : null;
+
+const MINT: PublicKey | undefined = argv['mint'] 
+  ? new PublicKey(argv['mint']) 
+  : undefined;
+
 const mintDecimals = 9; // Adjust if creating
 
 // creates the vault args buffer from args

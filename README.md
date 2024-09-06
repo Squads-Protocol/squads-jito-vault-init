@@ -30,13 +30,70 @@ Before running the script, make sure to:
 ## Usage
 
 Run the script using:
-`yarn start`
-
+`yarn start -- [options]`
 
 The script will:
 1. Set up a Squads multisig
 2. Create and execute a transaction to initialize the Jito Vault config
 3. Create and execute a transaction to initialize the Jito Vault
+
+
+### Command-line Arguments
+
+The script accepts the following command-line arguments:
+
+- `--restaking-program-id <id>`: Restaking Program ID (required)
+- `--vault-program-id <id>`: Vault Program ID (required)
+- `--multisig-address <address>`: Multisig Address (optional)
+- `--mint <address>`: Mint Address (optional)
+- `--rpc-url <url>`: RPC URL (default: https://api.devnet.solana.com)
+
+Example:
+
+```
+yarn start --
+--restaking-program-id ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop
+--vault-program-id QRSTUVWXYZabcdefghijklmnopABCDEFGHIJKLMNOP
+--multisig-address 3Jq8ikZhdNtZc5NY3utNrevLRRvg5j2ADz7wLxjaPt5s
+--mint So11111111111111111111111111111111111111112
+--rpc-url https://api.devnet.solana.com
+```
+
+
+If `--multisig-address` is not provided, the script will create a new multisig.
+If `--mint` is not provided, the script will create a new mint.
+
+## Script Behavior
+
+The script will:
+
+1. Set up a Squads multisig (if not provided)
+2. Create and execute a transaction to initialize the Jito Vault config
+3. Create and execute a transaction to initialize the Jito Vault
+4. Create and approve proposals for the transactions
+5. Execute the approved transactions
+
+## Development
+
+- `yarn build`: Compile TypeScript to JavaScript
+- `yarn dev`: Run the script in development mode with hot reloading
+- `yarn lint`: Lint the source code
+
+## Configuration
+
+The script uses the following configuration parameters:
+
+- `mintDecimals`: Set to 9 by default. Adjust this in the script if needed.
+- Fees (in basis points):
+  - `depositFeeBps`: 200 (2%)
+  - `withdrawalFeeBps`: 200 (2%)
+  - `rewardFeeBps`: 200 (2%)
+
+To modify these parameters, edit the values in the `main` function of `src/index.ts`.
+
+## License
+
+This project is licensed under the ISC License.
 
 ## Development
 
