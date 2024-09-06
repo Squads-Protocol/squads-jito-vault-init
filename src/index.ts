@@ -27,7 +27,6 @@ const initVaultArgs = (
 };
 
 const getJitoVaultConfigPda = () => {
-    // use PublicKey.findProgramAddressSync to generate the PDA
     return PublicKey.findProgramAddressSync([
         // first slice is "config" string
         Buffer.from("config"),
@@ -35,7 +34,6 @@ const getJitoVaultConfigPda = () => {
 };
 
 const getJitoVaultPda = (base: PublicKey) => {
-    // use PublicKey.findProgramAddressSync to generate the PDA
     return PublicKey.findProgramAddressSync([
         // first slice is "config" string
         Buffer.from("vault"),
@@ -202,7 +200,6 @@ const setupJitoVaultConfigTx = (
 const setupJitoVaultInitTx = async (
     multisigPda: PublicKey,
     defaultSquadAuthority: PublicKey,
-    connection: Connection,
     blockhash: string,
     creator: PublicKey,
     feePayer: PublicKey,
@@ -216,19 +213,25 @@ const setupJitoVaultInitTx = async (
 
     const [transactionPda] = getTransactionPda({multisigPda, index});
     // VAULT RELEVANT VARS
-    const [jitoBase] = getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(index)})  // since the base needs to sign as ephemeral
-    const jitoVrtMintKeypair = Keypair.generate(); // adjust this as neeeded - will be ephemeral
-    const jitoMint = Keypair.generate().publicKey; // adjust this as neeeded - should be an existing mint
+    const [jitoBase] = getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(1)});  // since the base needs to sign as ephemeral
+    console.log("Vault BASE: ", jitoBase.toBase58());
+    const [jitoVrtMint] =  getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(2)});
+    console.log("Vault VRT MINT: ", jitoVrtMint.toBase58());
+    const jitoMint = Keypair.generate().publicKey;           // adjust this as neeeded - should be an existing mint
+    console.log("Vault MINT: ", jitoMint.toBase58());
     const jitoAdmin = defaultSquadAuthority;                // adjust this as neeeded - should be an existing admin  
+    console.log("Vault Admin: ", jitoAdmin.toBase58());
     const [jitoVaultConfigPda] = getJitoVaultConfigPda();
+    console.log("Vault Config PDA: ", jitoVaultConfigPda.toBase58());
     const [jitoVaultPda] = getJitoVaultPda(jitoBase);
+    console.log("Vault PDA: ", jitoVaultPda.toBase58());
     const initVaultData = initVaultArgs(depositFeeBps, withdrawalFeeBps, rewardFeeBps, decimals);
 
     const jVaultInitIx = await createJitoVaultInitIx(
         VAULT_PROGRAM_ID,
         jitoVaultConfigPda,
         jitoVaultPda,
-        jitoVrtMintKeypair.publicKey,
+        jitoVrtMint,
         jitoMint,
         jitoAdmin,
         jitoBase,
@@ -244,7 +247,7 @@ const setupJitoVaultInitTx = async (
         creator,
         rentPayer,
         vaultIndex: 0,
-        ephemeralSigners: 0,
+        ephemeralSigners: 2,
         transactionMessage: new TransactionMessage({
             instructions: [jVaultInitIx],
             recentBlockhash: blockhash,
@@ -301,20 +304,6 @@ const main = async () => {
     signature = await connection.sendTransaction(vaultConfigTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
-    // now execute the transaction
-    nextBlockhash = await connection.getLatestBlockhash();
-    const executeConfigTx = await transactions.vaultTransactionExecute({
-            connection,
-            blockhash: nextBlockhash.blockhash,
-            feePayer: creator.publicKey,
-            multisigPda:multisigAddress,
-            transactionIndex: 1n,
-            member: creator.publicKey,
-        });
-    executeConfigTx.sign([creator]);
-    signature = await connection.sendTransaction(executeConfigTx);
-    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
-
     // ----------
     
     // now create the jito vault init tx
@@ -327,7 +316,6 @@ const main = async () => {
     const {vaultInitTx} = await setupJitoVaultInitTx(
         multisigAddress,
         defaultSquadAuthority,
-        connection,
         nextBlockhash.blockhash,
         creator.publicKey,
         creator.publicKey,
@@ -342,7 +330,76 @@ const main = async () => {
     signature = await connection.sendTransaction(vaultInitTx);
     await connection.confirmTransaction({signature,blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
-    // proposal vote here
+    // -------
+
+    // Now create the proposals and approve them
+    nextBlockhash = await connection.getLatestBlockhash();
+    const createConfigInitProposalTx = transactions.proposalCreate({
+        blockhash: nextBlockhash.blockhash,
+        multisigPda: multisigAddress,
+        transactionIndex: 1n,
+        creator: creator.publicKey,
+        rentPayer: creator.publicKey,
+        feePayer: creator.publicKey,
+    });
+    createConfigInitProposalTx.sign([creator]);
+    signature = await connection.sendTransaction(createConfigInitProposalTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+
+    nextBlockhash = await connection.getLatestBlockhash();
+    const createVaultInitProposalTx = transactions.proposalCreate({
+        blockhash: nextBlockhash.blockhash,
+        multisigPda: multisigAddress,
+        transactionIndex: 2n,
+        creator: creator.publicKey,
+        rentPayer: creator.publicKey,
+        feePayer: creator.publicKey,
+    });
+    createVaultInitProposalTx.sign([creator]);
+    signature = await connection.sendTransaction(createVaultInitProposalTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+
+    // approve the proposals
+    nextBlockhash = await connection.getLatestBlockhash();
+    const approveConfigInitProposalTx = transactions.proposalApprove({
+        blockhash: nextBlockhash.blockhash,
+        multisigPda: multisigAddress,
+        transactionIndex: 1n,
+        member: creator.publicKey,
+        feePayer: creator.publicKey,
+    });
+    approveConfigInitProposalTx.sign([creator]);
+    signature = await connection.sendTransaction(approveConfigInitProposalTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+
+    nextBlockhash = await connection.getLatestBlockhash();
+    const approveVaultInitProposalTx = transactions.proposalApprove({
+        blockhash: nextBlockhash.blockhash,
+        multisigPda: multisigAddress,
+        transactionIndex: 2n,
+        member: creator.publicKey,
+        feePayer: creator.publicKey
+    });
+    approveVaultInitProposalTx.sign([creator]);
+    signature = await connection.sendTransaction(approveVaultInitProposalTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+
+    // -------
+
+    // execute the transactions
+    // now execute the transaction
+    nextBlockhash = await connection.getLatestBlockhash();
+    const executeConfigTx = await transactions.vaultTransactionExecute({
+            connection,
+            blockhash: nextBlockhash.blockhash,
+            feePayer: creator.publicKey,
+            multisigPda:multisigAddress,
+            transactionIndex: 1n,
+            member: creator.publicKey,
+        });
+    executeConfigTx.sign([creator]);
+    signature = await connection.sendTransaction(executeConfigTx);
+    await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     // execute the transaction
     nextBlockhash = await connection.getLatestBlockhash();
@@ -355,6 +412,6 @@ const main = async () => {
             member: creator.publicKey,
         });
     executeInitTx.sign([creator]);
-    signature = await connection.sendTransaction(executeConfigTx);
+    signature = await connection.sendTransaction(executeInitTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
