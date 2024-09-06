@@ -36,6 +36,12 @@ const argv = yargs(hideBin(process.argv))
     description: 'Path to the Solana wallet JSON file',
     demandOption: true
   })
+  .help('help')
+  .alias('help', 'h')
+  .usage('Usage: $0 [options]')
+  .example('$0 --restaking-program-id ABC... --vault-program-id DEF... --wallet-path /path/to/wallet.json', 'Initialize Jito Vault with specified programs')
+  .epilogue('For more information, visit https://github.com/Squads-Protocol/squads-jito-vault-init')
+  .strict()
   .parseSync();
 
 
