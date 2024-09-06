@@ -257,6 +257,7 @@ const setupJitoVaultInitTx = async (
     return {vaultInitTx: jVaultInitTx};
 }
 
+// Main logic example
 const main = async () => {
     const connection = new Connection("https://api.devnet.solana.com", "confirmed");
     // create the squad
@@ -278,7 +279,9 @@ const main = async () => {
         connection
     );
     let signature = await connection.sendTransaction(createMsTx, [multisigCreateKey, creator]);
-    await connection.confirmTransaction(signature, {blockhash, lastValidBlockHeight})
+    await connection.confirmTransaction(signature, {blockhash, lastValidBlockHeight});
+
+
     // ---------
 
     // now create the jito vault config tx
@@ -309,7 +312,8 @@ const main = async () => {
     signature = await connection.sendTransaction(executeConfigTx, [creator]);
     await connection.confirmTransaction(signature, {blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
-    // -----
+    // ----------
+    
     // now create the jito vault init tx
     // EXAMPLE init vault args for JITO vault
     const depositFeeBps = 200;
