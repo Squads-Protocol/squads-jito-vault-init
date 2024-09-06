@@ -1,9 +1,8 @@
-import { getMultisigPda, getVaultPda, getProgramConfigPda, accounts} from "@sqds/multisig";
+import { getVaultPda} from "@sqds/multisig";
 import { PublicKey, Keypair, Connection,} from "@solana/web3.js";
 
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
-import { createMultisigTx } from "./transactions";
 import { loadWalletFromFile } from "./wallet";
 import { executions, jitoConfig, jitoInit, multisig, proposals, setupMint } from "./rpc";
 
