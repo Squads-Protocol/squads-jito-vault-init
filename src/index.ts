@@ -15,6 +15,8 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 const RESTAKING_PROGRAM_ID = new PublicKey("-----");
 const VAULT_PROGRAM_ID = new PublicKey("------");
 
+const RPC_URL = "https://api.devnet.solana.com";
+
 // creates the vault args buffer from args
 const initVaultArgs = (
     depositFeeBps: number,
@@ -269,17 +271,7 @@ const setupJitoVaultInitTx = async (
     return {vaultInitTx: jVaultInitTx};
 }
 
-// Main logic example
-const main = async () => {
-    const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-    // create the squad
-    // replace this with the CLI wallet keypair/Signer
-    const creator = Keypair.generate();
-    const multisigCreateKey = Keypair.generate();
-    // EXAMPLE append the multisig members to this array
-    const members = [creator.publicKey]
-    const defaultThreshold = 1;
-    
+const multisig = async (connection: Connection, creator: Keypair, multisigCreateKey: Keypair, members: PublicKey[], defaultThreshold: number) => {
     let {blockhash, lastValidBlockHeight} = await connection.getLatestBlockhash();
 
     const {createMsTx, multisigAddress, defaultSquadAuthority} = await setupSquad(
@@ -293,12 +285,11 @@ const main = async () => {
     createMsTx.sign([multisigCreateKey, creator]);
     let signature = await connection.sendTransaction(createMsTx);
     await connection.confirmTransaction({signature, blockhash, lastValidBlockHeight});
+    return {multisigAddress, defaultSquadAuthority};
+};
 
-
-    // ---------
-
-    // now create the jito vault config tx
-    let nextBlockhash = await connection.getLatestBlockhash();
+const jitoConfig = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey) => {
+    const nextBlockhash = await connection.getLatestBlockhash();
 
     const {vaultConfigTx, configTxPda} = await setupJitoVaultConfigTx(
         multisigAddress,
@@ -310,18 +301,12 @@ const main = async () => {
         1n
     );
     vaultConfigTx.sign([creator]);
-    signature = await connection.sendTransaction(vaultConfigTx);
+    const signature = await connection.sendTransaction(vaultConfigTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+};
 
-    // ----------
-    
-    // now create the jito vault init tx
-    // EXAMPLE init vault args for JITO vault
-    const depositFeeBps = 200;
-    const withdrawalFeeBps = 200;
-    const rewardFeeBps= 200;
-    const decimals = 9;
-    nextBlockhash = await connection.getLatestBlockhash();
+const jitoInit = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey, depositFeeBps: number, withdrawalFeeBps: number, rewardFeeBps: number, decimals: number) => {
+    const nextBlockhash = await connection.getLatestBlockhash();
     const {vaultInitTx} = await setupJitoVaultInitTx(
         multisigAddress,
         defaultSquadAuthority,
@@ -336,13 +321,12 @@ const main = async () => {
         decimals
     );
     vaultInitTx.sign([creator]);
-    signature = await connection.sendTransaction(vaultInitTx);
+    const signature = await connection.sendTransaction(vaultInitTx);
     await connection.confirmTransaction({signature,blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+};
 
-    // -------
-
-    // Now create the proposals and approve them
-    nextBlockhash = await connection.getLatestBlockhash();
+const proposals = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey) => {
+    let nextBlockhash = await connection.getLatestBlockhash();
     const createConfigInitProposalTx = transactions.proposalCreate({
         blockhash: nextBlockhash.blockhash,
         multisigPda: multisigAddress,
@@ -352,7 +336,7 @@ const main = async () => {
         feePayer: creator.publicKey,
     });
     createConfigInitProposalTx.sign([creator]);
-    signature = await connection.sendTransaction(createConfigInitProposalTx);
+    let signature = await connection.sendTransaction(createConfigInitProposalTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     nextBlockhash = await connection.getLatestBlockhash();
@@ -392,12 +376,11 @@ const main = async () => {
     approveVaultInitProposalTx.sign([creator]);
     signature = await connection.sendTransaction(approveVaultInitProposalTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+};
 
-    // -------
-
-    // execute the transactions
+const executions = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey) => {
     // now execute the transaction
-    nextBlockhash = await connection.getLatestBlockhash();
+    let nextBlockhash = await connection.getLatestBlockhash();
     const executeConfigTx = await transactions.vaultTransactionExecute({
             connection,
             blockhash: nextBlockhash.blockhash,
@@ -407,7 +390,7 @@ const main = async () => {
             member: creator.publicKey,
         });
     executeConfigTx.sign([creator]);
-    signature = await connection.sendTransaction(executeConfigTx);
+    let signature = await connection.sendTransaction(executeConfigTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 
     // execute the transaction
@@ -423,4 +406,43 @@ const main = async () => {
     executeInitTx.sign([creator]);
     signature = await connection.sendTransaction(executeInitTx);
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
+}
+
+// Main logic example
+const main = async () => {
+    const connection = new Connection(RPC_URL, "confirmed");
+    // create the squad
+    // replace this with the CLI wallet keypair/Signer
+    const creator = Keypair.generate();
+    const multisigCreateKey = Keypair.generate();
+    // EXAMPLE append the multisig members to this array
+    const members = [creator.publicKey]
+    const defaultThreshold = 1;
+    
+    const {multisigAddress, defaultSquadAuthority} = await multisig(connection, creator, multisigCreateKey, members, defaultThreshold);
+
+    // ---------
+
+    // now create the jito vault config tx
+    await jitoConfig(connection, creator, multisigAddress, defaultSquadAuthority);
+
+    // ----------
+    
+    // now create the jito vault init tx
+    // EXAMPLE init vault args for JITO vault
+    const depositFeeBps = 200;
+    const withdrawalFeeBps = 200;
+    const rewardFeeBps= 200;
+    const decimals = 9;
+    await jitoInit(connection, creator, multisigAddress, defaultSquadAuthority, depositFeeBps, withdrawalFeeBps, rewardFeeBps, decimals);
+
+    // -------
+
+    // Now create the proposals and approve them
+    await proposals(connection, creator, multisigAddress);
+
+    // -------
+
+    // execute the transactions
+    await executions(connection, creator, multisigAddress);
 };
