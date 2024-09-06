@@ -1,12 +1,3 @@
-/*
-
-    This script will 
-    a) Create the relevant multisig squad
-    b) slate and create the config and init Jito Vault transactions
-    c) create the proposals and vote on them
-    d) execute the transactions
-*/
-
 import { getMultisigPda, getVaultPda, getProgramConfigPda, getTransactionPda, accounts, instructions, types, transactions, getEphemeralSignerPda} from "@sqds/multisig";
 import { PublicKey, Keypair, Connection, TransactionInstruction, Transaction, TransactionMessage, Signer, SystemProgram, VersionedTransaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
@@ -220,6 +211,7 @@ const setupMint = async (connection: Connection, creator: Keypair, squadVault: P
     return mint;
 }
 
+// crafts the jito vault program config tx
 const setupJitoVaultConfigTx = (
     multisigPda: PublicKey,
     defaultSquadAuthority: PublicKey,
@@ -262,6 +254,7 @@ const setupJitoVaultConfigTx = (
     return {vaultConfigTx, configTxPda: txPda};
 }
 
+// creates the jito vault program init tx
 const setupJitoVaultInitTx = async (
     multisigPda: PublicKey,
     defaultSquadAuthority: PublicKey,
@@ -326,6 +319,7 @@ const setupJitoVaultInitTx = async (
     return {vaultInitTx: jVaultInitTx};
 }
 
+// creates the multisig
 const multisig = async (connection: Connection, creator: Keypair, multisigCreateKey: Keypair, members: PublicKey[], defaultThreshold: number) => {
     let {blockhash, lastValidBlockHeight} = await connection.getLatestBlockhash();
 
@@ -343,6 +337,7 @@ const multisig = async (connection: Connection, creator: Keypair, multisigCreate
     return {multisigAddress, defaultSquadAuthority};
 };
 
+// runs the jito vault config logic
 const jitoConfig = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey) => {
     const nextBlockhash = await connection.getLatestBlockhash();
 
@@ -360,6 +355,7 @@ const jitoConfig = async (connection: Connection, creator: Keypair, multisigAddr
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
 
+// runs the jito vault program init logic
 const jitoInit = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey, depositFeeBps: number, withdrawalFeeBps: number, rewardFeeBps: number, decimals: number, mint: PublicKey) => {
     const nextBlockhash = await connection.getLatestBlockhash();
     const {vaultInitTx} = await setupJitoVaultInitTx(
@@ -381,6 +377,7 @@ const jitoInit = async (connection: Connection, creator: Keypair, multisigAddres
     await connection.confirmTransaction({signature,blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
 
+// create and approve the proposals
 const proposals = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey) => {
     let nextBlockhash = await connection.getLatestBlockhash();
     const createConfigInitProposalTx = transactions.proposalCreate({
@@ -434,6 +431,7 @@ const proposals = async (connection: Connection, creator: Keypair, multisigAddre
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
 
+// execute the transactions
 const executions = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey) => {
     // now execute the transaction
     let nextBlockhash = await connection.getLatestBlockhash();
@@ -477,7 +475,6 @@ const main = async () => {
     if (MULTISIG_ADDRESS === null) {
         console.log("No multisig address provided, creating one...");
         const multisigCreateKey = Keypair.generate();
-        // EXAMPLE append the multisig members to this array
         const members = [creator.publicKey]
         const defaultThreshold = 1;
         
