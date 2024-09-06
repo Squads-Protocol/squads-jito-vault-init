@@ -55,6 +55,12 @@ const MINT: PublicKey | undefined = argv['mint']
 
 const mintDecimals = 9; // Adjust if creating
 
+// Vault Config Args
+const DEPOSIT_FEE_BPS = 200;
+const WITHDRAWAL_FEE_BPS = 200;
+const rREWARD_FEE_BPS = 200;
+const DECIMALS = 9;
+
 // creates the vault args buffer from args
 const initVaultArgs = (
     depositFeeBps: number,
@@ -497,11 +503,10 @@ const main = async () => {
     // ----------
     
     // now create the jito vault init tx
-    // EXAMPLE init vault args for JITO vault
-    const depositFeeBps = 200;
-    const withdrawalFeeBps = 200;
-    const rewardFeeBps= 200;
-    const decimals = 9;
+    const depositFeeBps = DEPOSIT_FEE_BPS;
+    const withdrawalFeeBps = WITHDRAWAL_FEE_BPS;
+    const rewardFeeBps= rREWARD_FEE_BPS;
+    const decimals = DECIMALS;
     let mint: PublicKey | undefined = MINT;
     if (!MINT) {
         console.log("No mint provided, creating one...");

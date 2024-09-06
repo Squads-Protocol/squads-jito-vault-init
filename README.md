@@ -21,11 +21,11 @@ This script initializes a Jito Vault Program through the Squads multisig SDK. It
 
 Before running the script, make sure to:
 
-1. Replace the placeholder program IDs in `src/index.ts`:
-- `RESTAKING_PROGRAM_ID`
-- `VAULT_PROGRAM_ID`
-
-2. Adjust any other configuration parameters as needed (e.g., fees, decimals).
+1. Replace the relevant vault args in `src/index.ts`:
+- `DEPOSIT_FEE_BPS`
+- `WITHDRAWAL_FEE_BPS`
+- `REWARD_FEE_BPS`
+- `DECIMALS`
 
 ## Usage
 
