@@ -4,7 +4,7 @@ This script initializes a Jito Vault Program through the Squads multisig SDK. It
 
 ## Prerequisites
 
-- Node.js (v14 or later recommended)
+- Node.js (v18 or later recommended)
 - npm or yarn
 
 ## Installation
