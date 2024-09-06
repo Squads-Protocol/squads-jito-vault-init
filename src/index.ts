@@ -9,13 +9,20 @@
 
 import { getMultisigPda, getVaultPda, getProgramConfigPda, getTransactionPda, accounts, instructions, types, transactions, getEphemeralSignerPda} from "@sqds/multisig";
 import { PublicKey, Keypair, Connection, TransactionInstruction, Transaction, TransactionMessage, Signer, SystemProgram, VersionedTransaction } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
 
 // EXAMPLE - REPLACE WITH IDS
 const RESTAKING_PROGRAM_ID = new PublicKey("-----");
 const VAULT_PROGRAM_ID = new PublicKey("------");
 
 const RPC_URL = "https://api.devnet.solana.com";
+
+// REPLACE THIS IF THE MULTISIG HAS ALREADY BEEN CREATED
+const MULTISIG_ADDRESS: PublicKey | null = null;
+
+// REPLACE THIS WITH THE MINT IF IT EXISTS, OR IT WILL CREATE A NEW ONE AND ASSIGN IT
+const MINT: PublicKey | undefined = undefined;
+const mintDecimals = 9; // Adjust if creating
 
 // creates the vault args buffer from args
 const initVaultArgs = (
@@ -37,6 +44,7 @@ const initVaultArgs = (
     return buffer;
 };
 
+// derives the vault config PDA
 const getJitoVaultConfigPda = () => {
     return PublicKey.findProgramAddressSync([
         // first slice is "config" string
@@ -44,6 +52,7 @@ const getJitoVaultConfigPda = () => {
     ], VAULT_PROGRAM_ID);
 };
 
+// derives the vault pda (w base as seed)
 const getJitoVaultPda = (base: PublicKey) => {
     return PublicKey.findProgramAddressSync([
         // first slice is "config" string
@@ -166,6 +175,14 @@ const setupSquad = async (creator: PublicKey, multisigCreateKey: PublicKey, memb
     };
 }
 
+// will be used to create a new mint if one is not provided
+const setupMint = async (connection: Connection, creator: Keypair, squadVault: PublicKey, decimals: number) => {
+    console.log("Creating mint...");
+    const mint = await createMint(connection, creator, squadVault, squadVault, decimals);
+    console.log("Mint created: ", mint.toBase58());
+    return mint;
+}
+
 const setupJitoVaultConfigTx = (
     multisigPda: PublicKey,
     defaultSquadAuthority: PublicKey,
@@ -219,18 +236,19 @@ const setupJitoVaultInitTx = async (
     depositFeeBps: number,
     withdrawalFeeBps: number,
     rewardFeeBps: number,
-    decimals: number
+    decimals: number,
+    mint: PublicKey
 ) => {
 
     const [transactionPda] = getTransactionPda({multisigPda, index});
     // VAULT RELEVANT VARS
-    const [jitoBase] = getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(1)});  // since the base needs to sign as ephemeral
+    const [jitoBase] = getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(1)});  
     console.log("Vault BASE: ", jitoBase.toBase58());
     const [jitoVrtMint] =  getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(2)});
     console.log("Vault VRT MINT: ", jitoVrtMint.toBase58());
-    const jitoMint = Keypair.generate().publicKey;           // adjust this as neeeded - should be an existing mint
+    const jitoMint = mint; 
     console.log("Vault MINT: ", jitoMint.toBase58());
-    const jitoAdmin = defaultSquadAuthority;                // adjust this as neeeded - should be an existing admin  
+    const jitoAdmin = defaultSquadAuthority;     
     console.log("Vault Admin: ", jitoAdmin.toBase58());
     const [jitoVaultConfigPda] = getJitoVaultConfigPda();
     console.log("Vault Config PDA: ", jitoVaultConfigPda.toBase58());
@@ -305,7 +323,7 @@ const jitoConfig = async (connection: Connection, creator: Keypair, multisigAddr
     await connection.confirmTransaction({signature, blockhash: nextBlockhash.blockhash, lastValidBlockHeight: nextBlockhash.lastValidBlockHeight});
 };
 
-const jitoInit = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey, depositFeeBps: number, withdrawalFeeBps: number, rewardFeeBps: number, decimals: number) => {
+const jitoInit = async (connection: Connection, creator: Keypair, multisigAddress: PublicKey, defaultSquadAuthority: PublicKey, depositFeeBps: number, withdrawalFeeBps: number, rewardFeeBps: number, decimals: number, mint: PublicKey) => {
     const nextBlockhash = await connection.getLatestBlockhash();
     const {vaultInitTx} = await setupJitoVaultInitTx(
         multisigAddress,
@@ -318,7 +336,8 @@ const jitoInit = async (connection: Connection, creator: Keypair, multisigAddres
         depositFeeBps,
         withdrawalFeeBps,
         rewardFeeBps,
-        decimals
+        decimals,
+        mint,
     );
     vaultInitTx.sign([creator]);
     const signature = await connection.sendTransaction(vaultInitTx);
@@ -410,16 +429,34 @@ const executions = async (connection: Connection, creator: Keypair, multisigAddr
 
 // Main logic example
 const main = async () => {
-    const connection = new Connection(RPC_URL, "confirmed");
-    // create the squad
     // replace this with the CLI wallet keypair/Signer
     const creator = Keypair.generate();
-    const multisigCreateKey = Keypair.generate();
-    // EXAMPLE append the multisig members to this array
-    const members = [creator.publicKey]
-    const defaultThreshold = 1;
-    
-    const {multisigAddress, defaultSquadAuthority} = await multisig(connection, creator, multisigCreateKey, members, defaultThreshold);
+
+    const connection = new Connection(RPC_URL, "confirmed");
+    // create the squad if needed
+    let multisigAddress: PublicKey;
+    let defaultSquadAuthority: PublicKey;
+
+    if (MULTISIG_ADDRESS === null) {
+        console.log("No multisig address provided, creating one...");
+        const multisigCreateKey = Keypair.generate();
+        // EXAMPLE append the multisig members to this array
+        const members = [creator.publicKey]
+        const defaultThreshold = 1;
+        
+        const multisigResult = await multisig(connection, creator, multisigCreateKey, members, defaultThreshold);
+        multisigAddress = multisigResult.multisigAddress;
+        defaultSquadAuthority = multisigResult.defaultSquadAuthority;
+    }else {
+        multisigAddress = MULTISIG_ADDRESS as PublicKey;
+        console.log("Using provided multisig address: ", multisigAddress.toBase58());
+        defaultSquadAuthority = getVaultPda({multisigPda: multisigAddress, index: 0})[0];
+    }
+
+    // Ensure that multisigAddress and defaultSquadAuthority are both set
+    if (!multisigAddress || !defaultSquadAuthority) {
+        throw new Error("Failed to set multisig address or squad authority.");
+    }
 
     // ---------
 
@@ -434,7 +471,18 @@ const main = async () => {
     const withdrawalFeeBps = 200;
     const rewardFeeBps= 200;
     const decimals = 9;
-    await jitoInit(connection, creator, multisigAddress, defaultSquadAuthority, depositFeeBps, withdrawalFeeBps, rewardFeeBps, decimals);
+    let mint: PublicKey | undefined = MINT;
+    if (!MINT) {
+        console.log("No mint provided, creating one...");
+        mint = await setupMint(connection, creator, defaultSquadAuthority, mintDecimals);
+    }
+
+    // At this point, ensure mint is of type PublicKey
+    if (!mint) {
+        throw new Error("Mint is undefined and could not be created.");
+    }
+
+    await jitoInit(connection, creator, multisigAddress, defaultSquadAuthority, depositFeeBps, withdrawalFeeBps, rewardFeeBps, decimals, mint);
 
     // -------
 
