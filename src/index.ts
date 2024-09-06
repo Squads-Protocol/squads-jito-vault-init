@@ -4,6 +4,8 @@ import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
 
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
+import { createJitoVaultInitConfigIx, createJitoVaultInitIx } from "./instructions";
+import { createMultisigTx, setupJitoVaultConfigTx, setupJitoVaultInitTx } from "./transactions";
 
 const argv = yargs(hideBin(process.argv))
   .option('restaking-program-id', {
@@ -52,120 +54,6 @@ const WITHDRAWAL_FEE_BPS = 200;
 const rREWARD_FEE_BPS = 200;
 const DECIMALS = 9;
 
-// creates the vault args buffer from args
-const initVaultArgs = (
-    depositFeeBps: number,
-    withdrawalFeeBps: number,
-    rewardFeeBps: number,
-    decimals: number
-  ): ArrayBuffer => {
-    // Total size = 1 byte for discriminator + 6 bytes for u16s + 1 byte for u8
-    const buffer = new ArrayBuffer(9); // 9 bytes total
-    const view = new DataView(buffer);
-    const discriminator = 1; 
-    view.setUint8(0, discriminator);
-    view.setUint16(1, depositFeeBps, true);
-    view.setUint16(3, withdrawalFeeBps, true);
-    view.setUint16(5, rewardFeeBps, true);
-    view.setUint8(7, decimals);
-  
-    return buffer;
-};
-
-// derives the vault config PDA
-const getJitoVaultConfigPda = () => {
-    return PublicKey.findProgramAddressSync([
-        // first slice is "config" string
-        Buffer.from("config"),
-    ], VAULT_PROGRAM_ID);
-};
-
-// derives the vault pda (w base as seed)
-const getJitoVaultPda = (base: PublicKey) => {
-    return PublicKey.findProgramAddressSync([
-        // first slice is "config" string
-        Buffer.from("vault"),
-        base.toBuffer(),
-    ], VAULT_PROGRAM_ID);
-};
-
-
-const createMultisigTx = (
-    multisigPda: PublicKey,
-    creator: PublicKey,
-    createKey: PublicKey,
-    members: PublicKey[],
-    programConfig: accounts.ProgramConfig,
-    threshold: number,
-    blockhash: string,
-    ): VersionedTransaction => {
-    const configTreasury = programConfig.treasury;
-
-    return transactions.multisigCreateV2({
-        blockhash,
-        createKey,
-        creator,
-        multisigPda,
-        configAuthority: null,
-        timeLock: 0,
-        members: members.map((member) => {
-        return {
-            key: member,
-            permissions: types.Permissions.all()
-        };
-        }),
-        threshold,
-        rentCollector: null,
-        treasury: configTreasury,
-    });
-};
-
-const createJitoVaultInitConfigIx =  (
-    jitoVaultProgramId: PublicKey,
-    jitoRestakingProgramId: PublicKey,
-    admin: PublicKey,
-    configPda: PublicKey
-) => {
-    const jitoVaultConfigIx = new TransactionInstruction({
-        programId: jitoVaultProgramId,
-        keys: [
-            {pubkey: configPda, isSigner: false, isWritable: true}, // config - mut (PDA)
-            {pubkey: admin, isSigner: true, isWritable: false}, // admin - mut, signer
-            {pubkey: jitoRestakingProgramId, isSigner: false, isWritable: false}, // restakingProgram
-            {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}, // systemProgram
-        ],
-        data: Buffer.from([0]) // deposit fee, withdraw fee, reward fee, decimals
-    });
-    return jitoVaultConfigIx;
-};
-
-const createJitoVaultInitIx =  (
-    jitoVaultProgramId: PublicKey,
-    configPda: PublicKey,
-    vault: PublicKey,
-    vrtMint: PublicKey,
-    mint: PublicKey,
-    admin: PublicKey,
-    base: PublicKey,
-    data: Buffer
-) => {
-    const jitoInitVaultIx = new TransactionInstruction({
-        programId: jitoVaultProgramId,
-        keys: [
-            {pubkey: configPda, isSigner: false, isWritable: true}, // config - mut (PDA)
-            {pubkey: vault, isSigner: false, isWritable: true}, // vault - mut
-            {pubkey: vrtMint, isSigner: true, isWritable: true}, // vrtMint - mut, signer
-            {pubkey: mint, isSigner: false, isWritable: false}, // mint
-            {pubkey: admin, isSigner: true, isWritable: true}, // admin - mut, signer
-            {pubkey: base, isSigner: true, isWritable: false}, // base - signer
-            {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}, // systemProgram
-            {pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false}, // tokenProgram
-        ],
-        data // deposit fee, withdraw fee, reward fee, decimals
-    });
-    return jitoInitVaultIx
-};
-
 
 // returns the tx to setup the squad
 const setupSquad = async (creator: PublicKey, multisigCreateKey: PublicKey, members: PublicKey[], defaultThreshold: number, blockhash: string, connection: Connection) => {
@@ -211,113 +99,6 @@ const setupMint = async (connection: Connection, creator: Keypair, squadVault: P
     return mint;
 }
 
-// crafts the jito vault program config tx
-const setupJitoVaultConfigTx = (
-    multisigPda: PublicKey,
-    defaultSquadAuthority: PublicKey,
-    blockhash: string,
-    creator: PublicKey,
-    feePayer: PublicKey,
-    rentPayer: PublicKey,
-    index: bigint
-) => {
-    // first squads transaction will be to setup the vault config for JITO
-    const [txPda] = getTransactionPda({multisigPda, index});
-
-    const [jitoVaultConfigPda] = getJitoVaultConfigPda();
-
-    const jConfigInitIx = createJitoVaultInitConfigIx(
-        VAULT_PROGRAM_ID,
-        RESTAKING_PROGRAM_ID,
-        defaultSquadAuthority,
-        jitoVaultConfigPda
-    );
-
-    // create the squad tx for the jConfigInitIx
-    const vaultConfigTx = transactions.vaultTransactionCreate({
-        blockhash,
-        feePayer,
-        multisigPda,
-        transactionIndex: index,
-        creator,
-        rentPayer,
-        vaultIndex: 0,
-        ephemeralSigners: 0,
-        transactionMessage: new TransactionMessage({
-            instructions: [jConfigInitIx],
-            recentBlockhash: blockhash,
-            payerKey: defaultSquadAuthority,
-        }),
-        addressLookupTableAccounts: []
-    });
-
-    return {vaultConfigTx, configTxPda: txPda};
-}
-
-// creates the jito vault program init tx
-const setupJitoVaultInitTx = async (
-    multisigPda: PublicKey,
-    defaultSquadAuthority: PublicKey,
-    blockhash: string,
-    creator: PublicKey,
-    feePayer: PublicKey,
-    rentPayer: PublicKey,
-    index: bigint,
-    depositFeeBps: number,
-    withdrawalFeeBps: number,
-    rewardFeeBps: number,
-    decimals: number,
-    mint: PublicKey
-) => {
-
-    const [transactionPda] = getTransactionPda({multisigPda, index});
-    // VAULT RELEVANT VARS
-    const [jitoBase] = getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(1)});  
-    console.log("Vault BASE: ", jitoBase.toBase58());
-    const [jitoVrtMint] =  getEphemeralSignerPda({transactionPda, ephemeralSignerIndex: Number(2)});
-    console.log("Vault VRT MINT: ", jitoVrtMint.toBase58());
-    const jitoMint = mint; 
-    console.log("Vault MINT: ", jitoMint.toBase58());
-    const jitoAdmin = defaultSquadAuthority;     
-    console.log("Vault Admin: ", jitoAdmin.toBase58());
-    const [jitoVaultConfigPda] = getJitoVaultConfigPda();
-    console.log("Vault Config PDA: ", jitoVaultConfigPda.toBase58());
-    const [jitoVaultPda] = getJitoVaultPda(jitoBase);
-    console.log("Vault PDA: ", jitoVaultPda.toBase58());
-    const initVaultData = initVaultArgs(depositFeeBps, withdrawalFeeBps, rewardFeeBps, decimals);
-
-    const jVaultInitIx = await createJitoVaultInitIx(
-        VAULT_PROGRAM_ID,
-        jitoVaultConfigPda,
-        jitoVaultPda,
-        jitoVrtMint,
-        jitoMint,
-        jitoAdmin,
-        jitoBase,
-        Buffer.from(initVaultData)
-    );
-
-    // create the squad tx for the jConfigInitIx
-    const jVaultInitTx = transactions.vaultTransactionCreate({
-        blockhash,
-        feePayer,
-        multisigPda,
-        transactionIndex: index,
-        creator,
-        rentPayer,
-        vaultIndex: 0,
-        ephemeralSigners: 2,
-        transactionMessage: new TransactionMessage({
-            instructions: [jVaultInitIx],
-            recentBlockhash: blockhash,
-            payerKey: defaultSquadAuthority,
-        }),
-        addressLookupTableAccounts: []
-    });
-
-
-    return {vaultInitTx: jVaultInitTx};
-}
 
 // creates the multisig
 const multisig = async (connection: Connection, creator: Keypair, multisigCreateKey: Keypair, members: PublicKey[], defaultThreshold: number) => {
@@ -348,7 +129,9 @@ const jitoConfig = async (connection: Connection, creator: Keypair, multisigAddr
         creator.publicKey,
         creator.publicKey,
         creator.publicKey,
-        1n
+        1n,
+        VAULT_PROGRAM_ID,
+        RESTAKING_PROGRAM_ID
     );
     vaultConfigTx.sign([creator]);
     const signature = await connection.sendTransaction(vaultConfigTx);
@@ -371,6 +154,7 @@ const jitoInit = async (connection: Connection, creator: Keypair, multisigAddres
         rewardFeeBps,
         decimals,
         mint,
+        VAULT_PROGRAM_ID
     );
     vaultInitTx.sign([creator]);
     const signature = await connection.sendTransaction(vaultInitTx);
