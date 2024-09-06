@@ -1,6 +1,6 @@
 import { createMint } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { setupJitoVaultConfigTx, setupJitoVaultInitTx } from "./transactions";
+import { setupJitoVaultConfigTx, setupJitoVaultInitTx, setupSquad } from "./transactions";
 import { transactions } from "@sqds/multisig";
 
 // will be used to create a new mint if one is not provided
@@ -165,8 +165,4 @@ export {
     jitoInit,
     proposals,
     executions
-}
-
-function setupSquad(publicKey: PublicKey, publicKey1: PublicKey, members: PublicKey[], defaultThreshold: number, blockhash: string, connection: Connection): { createMsTx: any; multisigAddress: any; defaultSquadAuthority: any; } | PromiseLike<{ createMsTx: any; multisigAddress: any; defaultSquadAuthority: any; }> {
-    throw new Error("Function not implemented.");
 }

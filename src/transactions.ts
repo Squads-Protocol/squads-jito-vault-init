@@ -1,7 +1,44 @@
-import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
-import { accounts, getEphemeralSignerPda, getTransactionPda, transactions, types } from "@sqds/multisig";
+import { Connection, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { accounts, getEphemeralSignerPda, getMultisigPda, getProgramConfigPda, getTransactionPda, getVaultPda, transactions, types } from "@sqds/multisig";
 import { createJitoVaultInitConfigIx, createJitoVaultInitIx } from "./instructions";
 import { getJitoVaultConfigPda, getJitoVaultPda, initVaultArgs } from "./helpers";
+
+
+// returns the tx to setup the squad
+const setupSquad = async (creator: PublicKey, multisigCreateKey: PublicKey, members: PublicKey[], defaultThreshold: number, blockhash: string, connection: Connection) => {
+
+    console.log("MultiSig Create Key: ", multisigCreateKey.toBase58());
+    const [multisigAddress] = getMultisigPda({createKey: multisigCreateKey});
+    console.log("MultiSig Config Address: ", multisigAddress.toBase58());
+    const [defaultVault] = getVaultPda({multisigPda: multisigAddress, index: 0});
+    console.log("Default Vault/Authority Address: ", defaultVault.toBase58());
+
+    // multisig program config fetch
+    const programConfigPda = getProgramConfigPda({})[0];
+
+    const programConfig =
+    await accounts.ProgramConfig.fromAccountAddress(
+        connection,
+        programConfigPda
+    );
+
+    const createMsTx = createMultisigTx(
+        multisigAddress,
+        creator,
+        multisigCreateKey,
+        members,
+        programConfig,
+        defaultThreshold,
+        blockhash
+    );
+    
+    return {
+        createMsTx,
+        multisigAddress,
+        defaultSquadAuthority: defaultVault, 
+        multisigCreateKey
+    };
+}
 
 // crafts the jito vault program config tx
 const setupJitoVaultConfigTx = (
@@ -146,6 +183,7 @@ const createMultisigTx = (
 };
 
 export {
+    setupSquad,
     setupJitoVaultConfigTx,
     setupJitoVaultInitTx,
     createMultisigTx
