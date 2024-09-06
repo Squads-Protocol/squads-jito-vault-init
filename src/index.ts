@@ -1,10 +1,9 @@
-import { getMultisigPda, getVaultPda, getProgramConfigPda, getTransactionPda, accounts, instructions, types, transactions, getEphemeralSignerPda} from "@sqds/multisig";
-import { PublicKey, Keypair, Connection, TransactionInstruction, Transaction, TransactionMessage, Signer, SystemProgram, VersionedTransaction } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint } from "@solana/spl-token";
+import { getMultisigPda, getVaultPda, getProgramConfigPda, accounts, transactions} from "@sqds/multisig";
+import { PublicKey, Keypair, Connection,} from "@solana/web3.js";
+import { createMint } from "@solana/spl-token";
 
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
-import { createJitoVaultInitConfigIx, createJitoVaultInitIx } from "./instructions";
 import { createMultisigTx, setupJitoVaultConfigTx, setupJitoVaultInitTx } from "./transactions";
 
 const argv = yargs(hideBin(process.argv))
