@@ -1,3 +1,12 @@
+/*
+
+    This script will 
+    a) Create the relevant multisig squad
+    b) slate and create the config and init Jito Vault transactions
+    c) create the proposals and vote on them
+    d) execute the transactions
+*/
+
 import { getMultisigPda, getVaultPda, getProgramConfigPda, getTransactionPda, accounts, instructions, types, transactions, getEphemeralSignerPda} from "@sqds/multisig";
 import { PublicKey, Keypair, Connection, TransactionInstruction, Transaction, TransactionMessage, Signer, SystemProgram, VersionedTransaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
