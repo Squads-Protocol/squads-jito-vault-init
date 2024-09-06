@@ -91,16 +91,12 @@ The script uses the following configuration parameters:
 
 To modify these parameters, edit the values in the `main` function of `src/index.ts`.
 
-## License
-
-This project is licensed under the ISC License.
-
 ## Development
 
 - `npm run build` or `yarn build`: Compile TypeScript to JavaScript
 - `npm run dev` or `yarn dev`: Run the script in development mode with hot reloading
 - `npm run lint` or `yarn lint`: Lint the source code
 
-## License
+`https://github.com/jito-foundation/restaking/blob/master/vault_program/src/initialize_vault.rs`
 
-This project is licensed under the ISC License.
+`https://github.com/jito-foundation/restaking/tree/ddcb69ff9400bdbd716bbab64508c87dc5512494/vault_sdk`
